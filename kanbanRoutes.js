@@ -1,4 +1,3 @@
-// ✅ kanbanRoutes.js - Fully Working Tasks API
 const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
