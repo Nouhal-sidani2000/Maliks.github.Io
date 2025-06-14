@@ -8,7 +8,7 @@ require('dotenv').config();
 const kanbanRoutes = require('./kanbanRoutes');
 const commentRoutes = require('./commentRoutes');
 const eventsRoutes = require('./eventsRoutes');
-const DashboardRoutes = require('./routes/DashboardRoutes'); // ✅ Corrected: singular
+const DashboardRoutes = require('./DashboardRoutes'); // ✅ Corrected: singular
 const FeedRoutes = require('./FeedRoutes');
 const TransferRoutes = require('./TransferRoutes');
 const userRoutes = require('./users');
