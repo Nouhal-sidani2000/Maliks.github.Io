@@ -53,7 +53,7 @@ router.get('/sales', async (req, res) => {
     console.log(`📊 Fetching sales for branch ${branchId}, period: ${period}`);
     
     const result = await pool.query(`
-      SELECT "category" AS category, SUM(amount)::FLOAT AS total
+      SELECT category, SUM(amount) AS total
       FROM Branch_Corporate
       WHERE branch_id = $1 AND ${getDateCondition(period, start, end)}
       GROUP BY "Type"
