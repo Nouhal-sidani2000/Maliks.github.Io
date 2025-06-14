@@ -38,7 +38,7 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
-app.options('*', cors()); // ✅ handles preflight OPTIONS requests
+/*app.options('*', cors()); // ✅ handles preflight OPTIONS requests*/
 
 
 // ✅ Middleware
