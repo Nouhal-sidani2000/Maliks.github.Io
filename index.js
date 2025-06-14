@@ -8,7 +8,7 @@ require('dotenv').config();
 const kanbanRoutes = require('./kanbanRoutes');
 const commentRoutes = require('./commentRoutes');
 const eventsRoutes = require('./eventsRoutes');
-const DashboardRoutes = require('./DashboardRoutes');
+const DashboardRoutes = require('./routes/DashboardRoutes'); // Correct path
 const FeedRoutes = require('./FeedRoutes');
 const TransferRoutes = require('./TransferRoutes');
 const userRoutes = require('./users');
@@ -32,18 +32,18 @@ pool.on('error', (err) => {
 
 app.set('db', pool);
 
-// ✅ CORS Configuration (Fixed for Netlify + Railway)
+// ✅ CORS Configuration (MUST be before routes)
 app.use(cors({
-  origin: 'https://iridescent-begonia-1b7fad.netlify.app', // ✅ your frontend domain
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  credentials: true
+  origin: 'https://iridescent-begonia-1b7fad.netlify.app',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
 
 // ✅ Middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ✅ Serve uploaded files statically
+// ✅ Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ✅ Log all incoming requests
@@ -104,7 +104,7 @@ app.post('/login', async (req, res) => {
 // ✅ Routes
 app.use('/api/comments', commentRoutes);
 app.use('/api/events', eventsRoutes);
-app.use('/api/dashboard', DashboardRoutes);
+app.use('/api/dashboard', DashboardRoutes); // Your dashboard routes
 app.use('/api/feed', FeedRoutes);
 app.use('/api/transfers', TransferRoutes);
 app.use('/api/users', userRoutes);
@@ -115,16 +115,16 @@ app.get('/', (req, res) => {
   res.send('API is running');
 });
 
-// ✅ Error handling middleware
+// ✅ Error handler
 app.use((err, req, res, next) => {
   console.error('❌ Server Error:', err);
-  res.status(500).json({ 
-    message: 'Internal server error', 
+  res.status(500).json({
+    message: 'Internal server error',
     error: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
   });
 });
 
-// ✅ Catch-All 404
+// ✅ 404 Catch-all
 app.use((req, res) => {
   res.status(404).json({ message: 'Not Found' });
 });
