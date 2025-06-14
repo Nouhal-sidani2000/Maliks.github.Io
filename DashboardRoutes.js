@@ -56,7 +56,7 @@ router.get('/sales', async (req, res) => {
       SELECT type, SUM(amount) AS total
       FROM branch_corporate
       WHERE branch_id = $1 AND ${getDateCondition(period, start, end)}
-      GROUP BY "Type"
+      GROUP BY type
     `, [branchId]);
     
     console.log(`📊 Sales query result:`, result.rows);
