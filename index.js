@@ -32,25 +32,10 @@ pool.on('error', (err) => {
 
 app.set('db', pool);
 
-// ✅ CORS Configuration
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'https://iridescent-begonia-1b7fad.netlify.app'
-];
-
+// ✅ CORS Configuration (Fixed for Netlify + Railway)
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  optionsSuccessStatus: 200
+  origin: 'https://iridescent-begonia-1b7fad.netlify.app',
+  credentials: true
 }));
 
 // ✅ Middleware
