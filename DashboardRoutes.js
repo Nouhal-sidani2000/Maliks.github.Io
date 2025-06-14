@@ -11,11 +11,8 @@ const pool = new Pool({
   port: process.env.DB_PORT,
 });
 
-// 🔁 Helper to build SQL condition based on period
 function getDateCondition(period, start, end) {
   switch (period) {
-    case 'today':
-      return "created_at::date = CURRENT_DATE";
     case 'week':
       return "created_at >= CURRENT_DATE - INTERVAL '7 days'";
     case 'month':
@@ -37,53 +34,42 @@ function getDateCondition(period, start, end) {
   }
 }
 
-// ✅ GET /api/dashboard/sales?period=month&start=YYYY-MM-DD&end=YYYY-MM-DD
+// ✅ GET /api/dashboard/sales
 router.get('/sales', async (req, res) => {
   const { period = 'month', start, end } = req.query;
+  const branchId = req.user?.branch_id;
+
+  if (!branchId) return res.status(403).json({ message: 'Unauthorized' });
+
   try {
     const result = await pool.query(`
-      SELECT category, SUM(amount)::FLOAT AS total
-      FROM sales_data
-      WHERE ${getDateCondition(period, start, end)}
-      GROUP BY category
-    `);
+      SELECT "Type" AS category, SUM(amount)::FLOAT AS total
+      FROM Branch_Corporate
+      WHERE branch_id = $1 AND ${getDateCondition(period, start, end)}
+      GROUP BY "Type"
+    `, [branchId]);
     res.json(result.rows);
   } catch (err) {
-    console.error("❌ Error retrieving sales:", err);
+    console.error("❌ Error retrieving branch sales:", err);
     res.status(500).json({ message: 'Error retrieving sales' });
   }
 });
 
-// ✅ GET /api/dashboard/leads?period=month&start=YYYY-MM-DD&end=YYYY-MM-DD
+// ✅ GET /api/dashboard/leads
 router.get('/leads', async (req, res) => {
   const { period = 'month', start, end } = req.query;
+
   try {
     const result = await pool.query(`
-      SELECT branch, COUNT(*)::INT AS count
+      SELECT branch_id, SUM(leads_sent)::INT AS count
       FROM leads
       WHERE ${getDateCondition(period, start, end)}
-      GROUP BY branch
+      GROUP BY branch_id
     `);
     res.json(result.rows);
   } catch (err) {
     console.error("❌ Error retrieving leads:", err);
     res.status(500).json({ message: 'Error retrieving leads' });
-  }
-});
-
-// ✅ GET /api/dashboard/profit?period=month&start=YYYY-MM-DD&end=YYYY-MM-DD
-router.get('/profit', async (req, res) => {
-  const { period = 'month', start, end } = req.query;
-  try {
-    const result = await pool.query(`
-      SELECT SUM(amount)::FLOAT AS total
-      FROM profit
-      WHERE ${getDateCondition(period, start, end)}
-    `);
-    res.json(result.rows[0] || { total: 0 });
-  } catch (err) {
-    console.error("❌ Error retrieving profit:", err);
-    res.status(500).json({ message: 'Error retrieving profit' });
   }
 });
 
