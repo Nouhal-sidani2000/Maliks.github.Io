@@ -38,11 +38,20 @@ function getDateCondition(period, start, end) {
 router.get('/sales', async (req, res) => {
   const { period = 'month', start, end, branch_id } = req.query;
   
-  // For now, get branch_id from query params or use a default
-  // Replace this with proper authentication later
-  const branchId = branch_id || req.user?.branch_id || 1; // Default to branch 1 for testing
+  // Get branch_id from query params or session/auth
+  // For testing, you can pass branch_id as a query parameter
+  let branchId = branch_id;
+  
+  // If no branch_id provided, return error or use default for testing
+  if (!branchId) {
+    return res.status(400).json({ 
+      message: 'Branch ID is required. Please provide branch_id as query parameter.' 
+    });
+  }
   
   try {
+    console.log(`📊 Fetching sales for branch ${branchId}, period: ${period}`);
+    
     const result = await pool.query(`
       SELECT "Type" AS category, SUM(amount)::FLOAT AS total
       FROM Branch_Corporate
@@ -50,6 +59,7 @@ router.get('/sales', async (req, res) => {
       GROUP BY "Type"
     `, [branchId]);
     
+    console.log(`📊 Sales query result:`, result.rows);
     res.json(result.rows);
   } catch (err) {
     console.error("❌ Error retrieving branch sales:", err);
