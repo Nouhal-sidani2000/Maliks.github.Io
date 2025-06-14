@@ -4,7 +4,6 @@ const bcrypt = require('bcrypt');
 const path = require('path');
 const { Pool } = require('pg');
 require('dotenv').config();
-
 const kanbanRoutes = require('./kanbanRoutes');
 const commentRoutes = require('./commentRoutes');
 const eventsRoutes = require('./eventsRoutes');
@@ -32,8 +31,23 @@ pool.on('error', (err) => {
 
 app.set('db', pool);
 
+// ✅ CORS Configuration - Fixed to handle preflight requests properly
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'https://iridescent-begonia-1b7fad.netlify.app'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
+}));
+
+// ✅ Handle preflight requests explicitly
+app.options('*', cors());
+
 // ✅ Middleware
-app.use(cors({ origin: 'https://iridescent-begonia-1b7fad.netlify.app', credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -76,11 +90,9 @@ app.post('/login', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (result.rows.length === 0) return res.status(401).json({ message: 'User not found' });
-
     const user = result.rows[0];
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ message: 'Incorrect password' });
-
     res.status(200).json({
       message: 'Login successful',
       user: {
@@ -111,6 +123,15 @@ app.get('/', (req, res) => {
   res.send('API is running');
 });
 
+// ✅ Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('❌ Server Error:', err);
+  res.status(500).json({ 
+    message: 'Internal server error', 
+    error: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+  });
+});
+
 // ✅ Catch-All 404
 app.use((req, res) => {
   res.status(404).json({ message: 'Not Found' });
@@ -119,4 +140,5 @@ app.use((req, res) => {
 // ✅ Start server
 app.listen(PORT, () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);
+  console.log(`📊 Dashboard API available at: http://localhost:${PORT}/api/dashboard`);
 });
