@@ -8,7 +8,7 @@ require('dotenv').config();
 const kanbanRoutes = require('./kanbanRoutes');
 const commentRoutes = require('./commentRoutes');
 const eventsRoutes = require('./eventsRoutes');
-const DashboardRoutes = require('./routes/DashboardRoutes'); // Correct path
+const DashboardRoutes = require('./routes/DashboardRoute'); // ✅ Corrected: singular
 const FeedRoutes = require('./FeedRoutes');
 const TransferRoutes = require('./TransferRoutes');
 const userRoutes = require('./users');
@@ -104,7 +104,7 @@ app.post('/login', async (req, res) => {
 // ✅ Routes
 app.use('/api/comments', commentRoutes);
 app.use('/api/events', eventsRoutes);
-app.use('/api/dashboard', DashboardRoutes); // Your dashboard routes
+app.use('/api/dashboard', DashboardRoutes); // ✅ Corrected import
 app.use('/api/feed', FeedRoutes);
 app.use('/api/transfers', TransferRoutes);
 app.use('/api/users', userRoutes);
