@@ -38,6 +38,8 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
+app.options('*', cors()); // ✅ handles preflight OPTIONS requests
+
 
 // ✅ Middleware
 app.use(express.json({ limit: '10mb' }));
