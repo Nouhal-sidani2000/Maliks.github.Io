@@ -34,7 +34,8 @@ app.set('db', pool);
 
 // ✅ CORS Configuration (Fixed for Netlify + Railway)
 app.use(cors({
-  origin: 'https://iridescent-begonia-1b7fad.netlify.app',
+  origin: 'https://iridescent-begonia-1b7fad.netlify.app', // ✅ your frontend domain
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true
 }));
 
