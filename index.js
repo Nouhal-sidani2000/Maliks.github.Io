@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const path = require('path');
 const { Pool } = require('pg');
 require('dotenv').config();
+
 const kanbanRoutes = require('./kanbanRoutes');
 const commentRoutes = require('./commentRoutes');
 const eventsRoutes = require('./eventsRoutes');
@@ -31,21 +32,26 @@ pool.on('error', (err) => {
 
 app.set('db', pool);
 
-// ✅ CORS Configuration - Fixed to handle preflight requests properly
+// ✅ CORS Configuration
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'https://iridescent-begonia-1b7fad.netlify.app'
+];
+
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'https://iridescent-begonia-1b7fad.netlify.app'
-  ],
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
+  optionsSuccessStatus: 200
 }));
-
-// ✅ Handle preflight requests explicitly
-app.options('*', cors());
 
 // ✅ Middleware
 app.use(express.json({ limit: '10mb' }));
@@ -116,7 +122,7 @@ app.use('/api/dashboard', DashboardRoutes);
 app.use('/api/feed', FeedRoutes);
 app.use('/api/transfers', TransferRoutes);
 app.use('/api/users', userRoutes);
-app.use('/', kanbanRoutes); 
+app.use('/', kanbanRoutes);
 
 // ✅ Health check
 app.get('/', (req, res) => {
@@ -139,6 +145,5 @@ app.use((req, res) => {
 
 // ✅ Start server
 app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
-  console.log(`📊 Dashboard API available at: http://localhost:${PORT}/api/dashboard`);
+  console.log(`✅ Server running on port ${PORT}`);
 });
