@@ -1,8 +1,13 @@
 const express = require('express');
-const router = express.Router();
 const { Pool } = require('pg');
 require('dotenv').config();
 
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+app.use(express.json());
+
+// ✅ PostgreSQL connection
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
@@ -12,7 +17,7 @@ const pool = new Pool({
 });
 
 // ✅ GET all events
-router.get('/', async (req, res) => {
+app.get('/api/events', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM events ORDER BY "start" ASC');
     res.json(result.rows);
@@ -23,7 +28,7 @@ router.get('/', async (req, res) => {
 });
 
 // ✅ POST new event (restricted to head_of_department)
-router.post('/', async (req, res) => {
+app.post('/api/events', async (req, res) => {
   const { title, description, start, end } = req.body;
   const role = req.headers['user-role'];
 
@@ -44,7 +49,7 @@ router.post('/', async (req, res) => {
 });
 
 // ✅ PUT update event date (drag and drop)
-router.put('/:id', async (req, res) => {
+app.put('/api/events/:id', async (req, res) => {
   const { id } = req.params;
   const { start } = req.body;
 
@@ -60,4 +65,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-module.exports = router;
+// ✅ Start server
+app.listen(PORT, () => {
+  console.log(`✅ Server running on http://localhost:${PORT}`);
+});
