@@ -12,6 +12,7 @@ const pool = new Pool({
   port: process.env.DB_PORT,
 });
 
+// ✅ Helper for dynamic date filtering
 function getDateCondition(period, start, end, column = 'created_at') {
   switch (period) {
     case 'week':
@@ -35,7 +36,7 @@ function getDateCondition(period, start, end, column = 'created_at') {
   }
 }
 
-// ✅ Corporate Sales
+// ✅ Corporate Sales (by type)
 router.get('/sales', async (req, res) => {
   const { period = 'month', start, end, branch_id } = req.query;
   if (!branch_id) return res.status(400).json({ message: 'branch_id is required' });
@@ -43,33 +44,35 @@ router.get('/sales', async (req, res) => {
     const result = await pool.query(`
       SELECT type, SUM(amount) AS total
       FROM branch_corporate
-      WHERE branch_id = $1 AND ${getDateCondition(period, start, end)}
+      WHERE branch_id = $1 AND ${getDateCondition(period, start, end, 'date')}
       GROUP BY type
     `, [branch_id]);
     res.json(result.rows);
   } catch (err) {
+    console.error('Error in /sales route:', err);
     res.status(500).json({ message: 'Error retrieving corporate sales', error: err.message });
   }
 });
 
-// ✅ Branch Sales
+// ✅ Branch Sales (by category, from same table)
 router.get('/branch-sales', async (req, res) => {
   const { period = 'month', start, end, branch_id } = req.query;
   if (!branch_id) return res.status(400).json({ message: 'branch_id is required' });
   try {
     const result = await pool.query(`
       SELECT category, SUM(amount) AS total
-      FROM branch_sales
-      WHERE branch_id = $1 AND ${getDateCondition(period, start, end)}
+      FROM branch_corporate
+      WHERE branch_id = $1 AND ${getDateCondition(period, start, end, 'date')}
       GROUP BY category
     `, [branch_id]);
     res.json(result.rows);
   } catch (err) {
+    console.error('Error in /branch-sales route:', err);
     res.status(500).json({ message: 'Error retrieving branch sales', error: err.message });
   }
 });
 
-// ✅ Leads — uses 'date' column instead of 'created_at'
+// ✅ Leads (from leads table, using 'date' column)
 router.get('/leads', async (req, res) => {
   const { period = 'month', start, end } = req.query;
   try {
@@ -88,6 +91,6 @@ router.get('/leads', async (req, res) => {
   }
 });
 
-// Add profit route if needed here
+// Add more routes like /profit if needed
 
 module.exports = router;
