@@ -12,21 +12,21 @@ const pool = new Pool({
   port: process.env.DB_PORT,
 });
 
-function getDateCondition(period, start, end) {
+function getDateCondition(period, start, end, column = 'created_at') {
   switch (period) {
     case 'week':
-      return "created_at >= CURRENT_DATE - INTERVAL '7 days'";
+      return `${column} >= CURRENT_DATE - INTERVAL '7 days'`;
     case 'month':
-      return "DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)";
+      return `DATE_TRUNC('month', ${column}) = DATE_TRUNC('month', CURRENT_DATE)`;
     case 'year':
-      return "EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE)";
+      return `EXTRACT(YEAR FROM ${column}) = EXTRACT(YEAR FROM CURRENT_DATE)`;
     case 'custom':
       if (start && end) {
-        return `created_at::date BETWEEN '${start}' AND '${end}'`;
+        return `${column}::date BETWEEN '${start}' AND '${end}'`;
       } else if (start) {
-        return `created_at::date >= '${start}'`;
+        return `${column}::date >= '${start}'`;
       } else if (end) {
-        return `created_at::date <= '${end}'`;
+        return `${column}::date <= '${end}'`;
       } else {
         return "TRUE";
       }
@@ -69,19 +69,21 @@ router.get('/branch-sales', async (req, res) => {
   }
 });
 
-// ✅ Leads
+// ✅ Leads — uses 'date' column instead of 'created_at'
 router.get('/leads', async (req, res) => {
   const { period = 'month', start, end } = req.query;
   try {
+    const dateCondition = getDateCondition(period, start, end, 'date');
     const result = await pool.query(`
-      SELECT branch_id, SUM(leads_sent)::INT AS count
+      SELECT branch_id, COALESCE(SUM(leads_sent), 0)::INT AS count
       FROM leads
-      WHERE ${getDateCondition(period, start, end)}
+      WHERE ${dateCondition}
       GROUP BY branch_id
       ORDER BY branch_id
     `);
     res.json(result.rows);
   } catch (err) {
+    console.error('Error in /leads route:', err);
     res.status(500).json({ message: 'Error retrieving leads', error: err.message });
   }
 });
