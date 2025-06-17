@@ -1,13 +1,8 @@
 const express = require('express');
+const router = express.Router();
 const { Pool } = require('pg');
 require('dotenv').config();
 
-const app = express();
-const PORT = process.env.PORT || 5000;
-
-app.use(express.json());
-
-// ✅ PostgreSQL connection
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
@@ -17,18 +12,18 @@ const pool = new Pool({
 });
 
 // ✅ GET all events
-app.get('/api/events', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM events ORDER BY "start" ASC');
     res.json(result.rows);
   } catch (error) {
     console.error('❌ Error fetching events:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ error: 'Failed to load events' });
   }
 });
 
 // ✅ POST new event (restricted to head_of_department)
-app.post('/api/events', async (req, res) => {
+router.post('/', async (req, res) => {
   const { title, description, start, end } = req.body;
   const role = req.headers['user-role'];
 
@@ -41,15 +36,15 @@ app.post('/api/events', async (req, res) => {
       'INSERT INTO events (title, description, "start", "end") VALUES ($1, $2, $3, $4) RETURNING *',
       [title, description, start, end]
     );
-    res.json(result.rows[0]);
+    res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('❌ Error adding event:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ error: 'Failed to add event' });
   }
 });
 
-// ✅ PUT update event date (drag and drop)
-app.put('/api/events/:id', async (req, res) => {
+// ✅ PUT update event date
+router.put('/:id', async (req, res) => {
   const { id } = req.params;
   const { start } = req.body;
 
@@ -58,14 +53,16 @@ app.put('/api/events/:id', async (req, res) => {
       'UPDATE events SET "start" = $1 WHERE id = $2 RETURNING *',
       [start, id]
     );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
     res.json(result.rows[0]);
   } catch (error) {
     console.error('❌ Error updating event:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ error: 'Failed to update event' });
   }
 });
 
-// ✅ Start server
-app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
-});
+module.exports = router;
