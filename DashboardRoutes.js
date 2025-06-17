@@ -36,7 +36,7 @@ function getDateCondition(period, start, end, column = 'created_at') {
   }
 }
 
-// ✅ Corporate Sales (by type)
+// ✅ Corporate Sales (by type from branch_corporate)
 router.get('/sales', async (req, res) => {
   const { period = 'month', start, end, branch_id } = req.query;
   if (!branch_id) return res.status(400).json({ message: 'branch_id is required' });
@@ -54,14 +54,14 @@ router.get('/sales', async (req, res) => {
   }
 });
 
-// ✅ Branch Sales (by category, from same table)
+// ✅ Branch Sales (by category from sales_data)
 router.get('/branch-sales', async (req, res) => {
   const { period = 'month', start, end, branch_id } = req.query;
   if (!branch_id) return res.status(400).json({ message: 'branch_id is required' });
   try {
     const result = await pool.query(`
       SELECT category, SUM(amount) AS total
-      FROM branch_corporate
+      FROM sales_data
       WHERE branch_id = $1 AND ${getDateCondition(period, start, end, 'date')}
       GROUP BY category
     `, [branch_id]);
