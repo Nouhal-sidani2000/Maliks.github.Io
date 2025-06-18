@@ -110,7 +110,7 @@ app.use('/api/dashboard', DashboardRoutes); // ✅ Corrected import
 app.use('/api/feed', FeedRoutes);
 app.use('/api/transfers', TransferRoutes);
 app.use('/api/users', userRoutes);
-app.use('/', kanbanRoutes);
+app.use('/api/tasks', kanbanRoutes);
 
 // ✅ Health check
 app.get('/', (req, res) => {
