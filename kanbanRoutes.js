@@ -3,7 +3,6 @@ const router = express.Router();
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// DB Connection
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
@@ -14,16 +13,16 @@ const pool = new Pool({
 
 // ✅ Create Task
 router.post('/', async (req, res) => {
-  const { title, description, status, owner, starr_date, due_date, label, color } = req.body;
+  const { title, description, status, owner, start_date, due_date, label, color } = req.body;
   if (!title || !status || !owner) {
     return res.status(400).json({ message: 'Missing required fields: title, status, or owner' });
   }
 
   try {
     const result = await pool.query(
-      `INSERT INTO tasks (title, description, status, owner, starr_date, due_date, label, color, created_at)
+      `INSERT INTO tasks (title, description, status, owner, start_date, due_date, label, color, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW()) RETURNING *`,
-      [title, description, status, owner, starr_date || null, due_date || null, label || null, color || null]
+      [title, description, status, owner, start_date || null, due_date || null, label || null, color || null]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -32,7 +31,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// ✅ Get Tasks by Owner
+// ✅ Get Tasks by Owner (branch name)
 router.get('/', async (req, res) => {
   const { owner } = req.query;
   if (!owner) return res.status(400).json({ message: 'Missing owner query parameter' });
@@ -49,7 +48,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// ✅ Get All Tasks (admin / HoD)
+// ✅ Get All Tasks (for debugging or summary)
 router.get('/all', async (_req, res) => {
   try {
     const result = await pool.query('SELECT * FROM tasks ORDER BY created_at DESC');
@@ -60,44 +59,9 @@ router.get('/all', async (_req, res) => {
   }
 });
 
-// ✅ Filter Tasks
-router.get('/filter', async (req, res) => {
-  const { owner, title, description, starr_date, due_date, label, status } = req.query;
-  if (!owner) return res.status(400).json({ message: 'Missing owner query parameter' });
-
-  let query = 'SELECT * FROM tasks WHERE owner = $1';
-  const values = [owner];
-  let i = 2;
-
-  const addFilter = (field, sqlField, operator = 'ILIKE') => {
-    if (field?.trim()) {
-      query += ` AND ${sqlField} ${operator} $${i}`;
-      values.push(operator === '=' ? field : `%${field}%`);
-      i++;
-    }
-  };
-
-  addFilter(title, 'title');
-  addFilter(description, 'description');
-  addFilter(label, 'label');
-  addFilter(starr_date, 'starr_date', '=');
-  addFilter(due_date, 'due_date', '=');
-  addFilter(status, 'status', '=');
-
-  query += ' ORDER BY created_at DESC';
-
-  try {
-    const result = await pool.query(query, values);
-    res.json(result.rows);
-  } catch (err) {
-    console.error('❌ Error filtering tasks:', err.message);
-    res.status(500).json({ message: 'Error filtering tasks', error: err.message });
-  }
-});
-
 // ✅ Update Task
 router.put('/:id', async (req, res) => {
-  const { title, description, status, starr_date, due_date, label, color } = req.body;
+  const { title, description, status, start_date, due_date, label, color } = req.body;
 
   try {
     const result = await pool.query(
@@ -105,12 +69,12 @@ router.put('/:id', async (req, res) => {
          title = $1,
          description = $2,
          status = $3,
-         starr_date = $4,
+         start_date = $4,
          due_date = $5,
          label = $6,
          color = $7
        WHERE id = $8 RETURNING *`,
-      [title, description, status, starr_date || null, due_date || null, label || null, color || null, req.params.id]
+      [title, description, status, start_date || null, due_date || null, label || null, color || null, req.params.id]
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -130,14 +94,14 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// ✅ Task Summary
+// ✅ Summary View
 router.get('/summary', async (req, res) => {
   const { start_date, end_date } = req.query;
   let query = 'SELECT owner AS branch, COUNT(*) AS task_count FROM tasks';
   const values = [];
 
   if (start_date && end_date) {
-    query += ' WHERE starr_date BETWEEN $1 AND $2';
+    query += ' WHERE start_date BETWEEN $1 AND $2';
     values.push(start_date, end_date);
   }
 
