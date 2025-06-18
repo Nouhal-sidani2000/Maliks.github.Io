@@ -3,7 +3,7 @@ const router = express.Router();
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// PostgreSQL DB Connection
+// DB Connection
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
@@ -12,9 +12,19 @@ const pool = new Pool({
   port: process.env.DB_PORT,
 });
 
-// ✅ CREATE Task
+// ✅ Create Task
 router.post('/tasks', async (req, res) => {
-  const { title, description, status, owner, start_date, due_date, label, color, branch_id } = req.body;
+  const {
+    title,
+    description,
+    status,
+    owner,         // branch name
+    starr_date,    // correct spelling from your DB
+    due_date,
+    label,
+    color,
+    branch_id
+  } = req.body;
 
   if (!title || !status || !owner || !branch_id) {
     return res.status(400).json({ message: 'Missing required fields: title, status, owner, or branch_id' });
@@ -22,9 +32,10 @@ router.post('/tasks', async (req, res) => {
 
   try {
     const result = await pool.query(
-      `INSERT INTO tasks (title, description, status, owner, start_date, due_date, label, color, branch_id, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()) RETURNING *`,
-      [title, description, status, owner, start_date || null, due_date || null, label || null, color || null, branch_id]
+      `INSERT INTO tasks (title, description, status, owner, starr_date, due_date, label, color, branch_id, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+       RETURNING *`,
+      [title, description, status, owner, starr_date || null, due_date || null, label || null, color || null, branch_id]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -33,10 +44,10 @@ router.post('/tasks', async (req, res) => {
   }
 });
 
-// ✅ GET Tasks by Owner
+// ✅ Get All Tasks by Branch Name
 router.get('/tasks', async (req, res) => {
-  const { owner } = req.query;
-  if (!owner) return res.status(400).json({ message: 'Missing owner query parameter' });
+  const { owner } = req.query; // this is the branch name
+  if (!owner) return res.status(400).json({ message: 'Missing owner (branch) query parameter' });
 
   try {
     const result = await pool.query(
@@ -50,9 +61,19 @@ router.get('/tasks', async (req, res) => {
   }
 });
 
-// ✅ UPDATE Task
+// ✅ Update Task
 router.put('/tasks/:id', async (req, res) => {
-  const { title, description, status, start_date, due_date, label, color, branch_id } = req.body;
+  const {
+    title,
+    description,
+    status,
+    starr_date,
+    due_date,
+    label,
+    color,
+    branch_id,
+    owner
+  } = req.body;
 
   try {
     const result = await pool.query(
@@ -60,13 +81,14 @@ router.put('/tasks/:id', async (req, res) => {
          title = $1,
          description = $2,
          status = $3,
-         start_date = $4,
+         starr_date = $4,
          due_date = $5,
          label = $6,
          color = $7,
-         branch_id = $8
-       WHERE id = $9 RETURNING *`,
-      [title, description, status, start_date || null, due_date || null, label || null, color || null, branch_id, req.params.id]
+         branch_id = $8,
+         owner = $9
+       WHERE id = $10 RETURNING *`,
+      [title, description, status, starr_date || null, due_date || null, label || null, color || null, branch_id, owner, req.params.id]
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -75,7 +97,7 @@ router.put('/tasks/:id', async (req, res) => {
   }
 });
 
-// ✅ DELETE Task
+// ✅ Delete Task
 router.delete('/tasks/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM tasks WHERE id = $1', [req.params.id]);
@@ -86,9 +108,9 @@ router.delete('/tasks/:id', async (req, res) => {
   }
 });
 
-// ✅ FILTER Tasks by Fields
+// ✅ Filter Tasks
 router.get('/tasks/filter', async (req, res) => {
-  const { owner, title, description, start_date, due_date, label, status } = req.query;
+  const { owner, title, description, starr_date, due_date, label, status } = req.query;
   if (!owner) return res.status(400).json({ message: 'Missing owner query parameter' });
 
   let query = 'SELECT * FROM tasks WHERE owner = $1';
@@ -106,7 +128,7 @@ router.get('/tasks/filter', async (req, res) => {
   addFilter(title, 'title');
   addFilter(description, 'description');
   addFilter(label, 'label');
-  addFilter(start_date, 'start_date', '=');
+  addFilter(starr_date, 'starr_date', '=');
   addFilter(due_date, 'due_date', '=');
   addFilter(status, 'status', '=');
 
@@ -118,6 +140,19 @@ router.get('/tasks/filter', async (req, res) => {
   } catch (err) {
     console.error('❌ Error filtering tasks:', err.message);
     res.status(500).json({ message: 'Error filtering tasks', error: err.message });
+  }
+});
+
+// ✅ Get Branch List
+router.get('/users/branches', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT DISTINCT branch_id, owner AS branch_name FROM users WHERE branch_id IS NOT NULL ORDER BY branch_name'
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('❌ Error fetching branches:', err.message);
+    res.status(500).json({ message: 'Failed to fetch branches' });
   }
 });
 
