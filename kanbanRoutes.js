@@ -3,7 +3,7 @@ const router = express.Router();
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// DB Connection
+// PostgreSQL DB Connection
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
@@ -19,7 +19,7 @@ router.post('/tasks', async (req, res) => {
     description,
     status,
     owner,         // branch name
-    starr_date,    // correct spelling from your DB
+    starr_date,    // your DB spelling
     due_date,
     label,
     color,
@@ -33,8 +33,7 @@ router.post('/tasks', async (req, res) => {
   try {
     const result = await pool.query(
       `INSERT INTO tasks (title, description, status, owner, starr_date, due_date, label, color, branch_id, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
-       RETURNING *`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()) RETURNING *`,
       [title, description, status, owner, starr_date || null, due_date || null, label || null, color || null, branch_id]
     );
     res.status(201).json(result.rows[0]);
@@ -44,10 +43,10 @@ router.post('/tasks', async (req, res) => {
   }
 });
 
-// ✅ Get All Tasks by Branch Name
+// ✅ Get Tasks by Branch (Owner)
 router.get('/tasks', async (req, res) => {
-  const { owner } = req.query; // this is the branch name
-  if (!owner) return res.status(400).json({ message: 'Missing owner (branch) query parameter' });
+  const { owner } = req.query;
+  if (!owner) return res.status(400).json({ message: 'Missing owner (branch name) in query' });
 
   try {
     const result = await pool.query(
@@ -143,7 +142,34 @@ router.get('/tasks/filter', async (req, res) => {
   }
 });
 
-// ✅ Get Branch List
+// ✅ Get All Tasks (for head_of_department)
+router.get('/tasks/all', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM tasks ORDER BY owner, status, created_at DESC');
+    res.json(result.rows);
+  } catch (err) {
+    console.error('❌ Error fetching all tasks:', err.message);
+    res.status(500).json({ message: 'Failed to fetch all tasks' });
+  }
+});
+
+// ✅ Get Task Summary by Branch
+router.get('/tasks/summary', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT owner AS branch, COUNT(*) AS task_count
+       FROM tasks
+       GROUP BY owner
+       ORDER BY task_count DESC`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('❌ Error fetching task summary:', err.message);
+    res.status(500).json({ message: 'Failed to fetch summary' });
+  }
+});
+
+// ✅ Get Branch List (for dropdown)
 router.get('/users/branches', async (req, res) => {
   try {
     const result = await pool.query(
