@@ -3,7 +3,7 @@ const router = express.Router();
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// PostgreSQL DB Connection
+// DB Connection
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
@@ -14,27 +14,16 @@ const pool = new Pool({
 
 // ✅ Create Task
 router.post('/tasks', async (req, res) => {
-  const {
-    title,
-    description,
-    status,
-    owner,         // branch name
-    starr_date,    // your DB spelling
-    due_date,
-    label,
-    color,
-    branch_id
-  } = req.body;
-
-  if (!title || !status || !owner || !branch_id) {
-    return res.status(400).json({ message: 'Missing required fields: title, status, owner, or branch_id' });
+  const { title, description, status, owner, starr_date, due_date, label, color } = req.body;
+  if (!title || !status || !owner) {
+    return res.status(400).json({ message: 'Missing required fields: title, status, or owner' });
   }
 
   try {
     const result = await pool.query(
-      `INSERT INTO tasks (title, description, status, owner, starr_date, due_date, label, color, branch_id, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()) RETURNING *`,
-      [title, description, status, owner, starr_date || null, due_date || null, label || null, color || null, branch_id]
+      `INSERT INTO tasks (title, description, status, owner, starr_date, due_date, label, color, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW()) RETURNING *`,
+      [title, description, status, owner, starr_date || null, due_date || null, label || null, color || null]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -43,10 +32,10 @@ router.post('/tasks', async (req, res) => {
   }
 });
 
-// ✅ Get Tasks by Branch (Owner)
+// ✅ Get All Tasks by Owner
 router.get('/tasks', async (req, res) => {
   const { owner } = req.query;
-  if (!owner) return res.status(400).json({ message: 'Missing owner (branch name) in query' });
+  if (!owner) return res.status(400).json({ message: 'Missing owner query parameter' });
 
   try {
     const result = await pool.query(
@@ -60,19 +49,20 @@ router.get('/tasks', async (req, res) => {
   }
 });
 
+// ✅ Get All Tasks (admin use)
+router.get('/tasks/all', async (_req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM tasks ORDER BY created_at DESC');
+    res.json(result.rows);
+  } catch (err) {
+    console.error('❌ Error fetching all tasks:', err.message);
+    res.status(500).json({ message: 'Error fetching all tasks', error: err.message });
+  }
+});
+
 // ✅ Update Task
 router.put('/tasks/:id', async (req, res) => {
-  const {
-    title,
-    description,
-    status,
-    starr_date,
-    due_date,
-    label,
-    color,
-    branch_id,
-    owner
-  } = req.body;
+  const { title, description, status, starr_date, due_date, label, color } = req.body;
 
   try {
     const result = await pool.query(
@@ -83,11 +73,9 @@ router.put('/tasks/:id', async (req, res) => {
          starr_date = $4,
          due_date = $5,
          label = $6,
-         color = $7,
-         branch_id = $8,
-         owner = $9
-       WHERE id = $10 RETURNING *`,
-      [title, description, status, starr_date || null, due_date || null, label || null, color || null, branch_id, owner, req.params.id]
+         color = $7
+       WHERE id = $8 RETURNING *`,
+      [title, description, status, starr_date || null, due_date || null, label || null, color || null, req.params.id]
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -100,14 +88,14 @@ router.put('/tasks/:id', async (req, res) => {
 router.delete('/tasks/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM tasks WHERE id = $1', [req.params.id]);
-    res.json({ message: 'Task deleted' });
+    res.sendStatus(204);
   } catch (err) {
     console.error('❌ Error deleting task:', err.message);
     res.status(500).json({ message: 'Error deleting task', error: err.message });
   }
 });
 
-// ✅ Filter Tasks
+// ✅ Filter Tasks by Fields
 router.get('/tasks/filter', async (req, res) => {
   const { owner, title, description, starr_date, due_date, label, status } = req.query;
   if (!owner) return res.status(400).json({ message: 'Missing owner query parameter' });
@@ -142,43 +130,25 @@ router.get('/tasks/filter', async (req, res) => {
   }
 });
 
-// ✅ Get All Tasks (for head_of_department)
-router.get('/tasks/all', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM tasks ORDER BY owner, status, created_at DESC');
-    res.json(result.rows);
-  } catch (err) {
-    console.error('❌ Error fetching all tasks:', err.message);
-    res.status(500).json({ message: 'Failed to fetch all tasks' });
-  }
-});
-
-// ✅ Get Task Summary by Branch
+// ✅ Summary Endpoint for Dashboard
 router.get('/tasks/summary', async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT owner AS branch, COUNT(*) AS task_count
-       FROM tasks
-       GROUP BY owner
-       ORDER BY task_count DESC`
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error('❌ Error fetching task summary:', err.message);
-    res.status(500).json({ message: 'Failed to fetch summary' });
-  }
-});
+  const { start_date, end_date } = req.query;
+  let query = 'SELECT owner AS branch, COUNT(*) AS task_count FROM tasks';
+  const values = [];
 
-// ✅ Get Branch List (for dropdown)
-router.get('/users/branches', async (req, res) => {
+  if (start_date && end_date) {
+    query += ' WHERE starr_date BETWEEN $1 AND $2';
+    values.push(start_date, end_date);
+  }
+
+  query += ' GROUP BY owner ORDER BY task_count DESC';
+
   try {
-    const result = await pool.query(
-      'SELECT DISTINCT branch_id, owner AS branch_name FROM users WHERE branch_id IS NOT NULL ORDER BY branch_name'
-    );
+    const result = await pool.query(query, values);
     res.json(result.rows);
   } catch (err) {
-    console.error('❌ Error fetching branches:', err.message);
-    res.status(500).json({ message: 'Failed to fetch branches' });
+    console.error('❌ Error generating summary:', err.message);
+    res.status(500).json({ message: 'Error generating summary', error: err.message });
   }
 });
 
