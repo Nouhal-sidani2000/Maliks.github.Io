@@ -13,7 +13,7 @@ const pool = new Pool({
 });
 
 // ✅ Create Task
-router.post('/tasks', async (req, res) => {
+router.post('/', async (req, res) => {
   const { title, description, status, owner, starr_date, due_date, label, color } = req.body;
   if (!title || !status || !owner) {
     return res.status(400).json({ message: 'Missing required fields: title, status, or owner' });
@@ -32,8 +32,8 @@ router.post('/tasks', async (req, res) => {
   }
 });
 
-// ✅ Get All Tasks by Owner
-router.get('/tasks', async (req, res) => {
+// ✅ Get Tasks by Owner
+router.get('/', async (req, res) => {
   const { owner } = req.query;
   if (!owner) return res.status(400).json({ message: 'Missing owner query parameter' });
 
@@ -49,8 +49,8 @@ router.get('/tasks', async (req, res) => {
   }
 });
 
-// ✅ Get All Tasks (admin use)
-router.get('/tasks/all', async (_req, res) => {
+// ✅ Get All Tasks (admin / HoD)
+router.get('/all', async (_req, res) => {
   try {
     const result = await pool.query('SELECT * FROM tasks ORDER BY created_at DESC');
     res.json(result.rows);
@@ -60,43 +60,8 @@ router.get('/tasks/all', async (_req, res) => {
   }
 });
 
-// ✅ Update Task
-router.put('/tasks/:id', async (req, res) => {
-  const { title, description, status, starr_date, due_date, label, color } = req.body;
-
-  try {
-    const result = await pool.query(
-      `UPDATE tasks SET
-         title = $1,
-         description = $2,
-         status = $3,
-         starr_date = $4,
-         due_date = $5,
-         label = $6,
-         color = $7
-       WHERE id = $8 RETURNING *`,
-      [title, description, status, starr_date || null, due_date || null, label || null, color || null, req.params.id]
-    );
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error('❌ Error updating task:', err.message);
-    res.status(500).json({ message: 'Error updating task', error: err.message });
-  }
-});
-
-// ✅ Delete Task
-router.delete('/tasks/:id', async (req, res) => {
-  try {
-    await pool.query('DELETE FROM tasks WHERE id = $1', [req.params.id]);
-    res.sendStatus(204);
-  } catch (err) {
-    console.error('❌ Error deleting task:', err.message);
-    res.status(500).json({ message: 'Error deleting task', error: err.message });
-  }
-});
-
-// ✅ Filter Tasks by Fields
-router.get('/tasks/filter', async (req, res) => {
+// ✅ Filter Tasks
+router.get('/filter', async (req, res) => {
   const { owner, title, description, starr_date, due_date, label, status } = req.query;
   if (!owner) return res.status(400).json({ message: 'Missing owner query parameter' });
 
@@ -130,8 +95,43 @@ router.get('/tasks/filter', async (req, res) => {
   }
 });
 
-// ✅ Summary Endpoint for Dashboard
-router.get('/tasks/summary', async (req, res) => {
+// ✅ Update Task
+router.put('/:id', async (req, res) => {
+  const { title, description, status, starr_date, due_date, label, color } = req.body;
+
+  try {
+    const result = await pool.query(
+      `UPDATE tasks SET
+         title = $1,
+         description = $2,
+         status = $3,
+         starr_date = $4,
+         due_date = $5,
+         label = $6,
+         color = $7
+       WHERE id = $8 RETURNING *`,
+      [title, description, status, starr_date || null, due_date || null, label || null, color || null, req.params.id]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('❌ Error updating task:', err.message);
+    res.status(500).json({ message: 'Error updating task', error: err.message });
+  }
+});
+
+// ✅ Delete Task
+router.delete('/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM tasks WHERE id = $1', [req.params.id]);
+    res.sendStatus(204);
+  } catch (err) {
+    console.error('❌ Error deleting task:', err.message);
+    res.status(500).json({ message: 'Error deleting task', error: err.message });
+  }
+});
+
+// ✅ Task Summary
+router.get('/summary', async (req, res) => {
   const { start_date, end_date } = req.query;
   let query = 'SELECT owner AS branch, COUNT(*) AS task_count FROM tasks';
   const values = [];
