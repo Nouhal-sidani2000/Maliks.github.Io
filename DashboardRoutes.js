@@ -16,7 +16,9 @@ const pool = new Pool({
 function getDateCondition(period, start, end, column = 'created_at') {
   switch (period) {
     case 'week':
-      return `${column} >= CURRENT_DATE - INTERVAL '7 days'`;
+      // Monday to Sunday of current week
+      return `${column}::date BETWEEN date_trunc('week', CURRENT_DATE)::date 
+              AND (date_trunc('week', CURRENT_DATE) + interval '6 days')::date`;
     case 'month':
       return `DATE_TRUNC('month', ${column}) = DATE_TRUNC('month', CURRENT_DATE)`;
     case 'year':
@@ -40,6 +42,7 @@ function getDateCondition(period, start, end, column = 'created_at') {
 router.get('/sales', async (req, res) => {
   const { period = 'month', start, end, branch_id } = req.query;
   if (!branch_id) return res.status(400).json({ message: 'branch_id is required' });
+
   try {
     const result = await pool.query(`
       SELECT type, SUM(amount) AS total
@@ -58,6 +61,7 @@ router.get('/sales', async (req, res) => {
 router.get('/branch-sales', async (req, res) => {
   const { period = 'month', start, end, branch_id } = req.query;
   if (!branch_id) return res.status(400).json({ message: 'branch_id is required' });
+
   try {
     const result = await pool.query(`
       SELECT category, SUM(amount) AS total
@@ -75,6 +79,7 @@ router.get('/branch-sales', async (req, res) => {
 // ✅ Leads (from leads table, using 'date' column)
 router.get('/leads', async (req, res) => {
   const { period = 'month', start, end } = req.query;
+
   try {
     const dateCondition = getDateCondition(period, start, end, 'date');
     const result = await pool.query(`
@@ -90,7 +95,5 @@ router.get('/leads', async (req, res) => {
     res.status(500).json({ message: 'Error retrieving leads', error: err.message });
   }
 });
-
-// Add more routes like /profit if needed
 
 module.exports = router;
