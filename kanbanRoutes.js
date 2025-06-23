@@ -13,16 +13,28 @@ const pool = new Pool({
 
 // ✅ Create Task
 router.post('/', async (req, res) => {
-  const { title, description, status, owner, start_date, due_date, label, color } = req.body;
+  const {
+    title,
+    description,
+    status,
+    owner,
+    start_date,
+    due_date,
+    urgency,
+    assigned_by,
+    assigned_to,
+  } = req.body;
+
   if (!title || !status || !owner) {
     return res.status(400).json({ message: 'Missing required fields: title, status, or owner' });
   }
 
   try {
     const result = await pool.query(
-      `INSERT INTO tasks (title, description, status, owner, start_date, due_date, label, color, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW()) RETURNING *`,
-      [title, description, status, owner, start_date || null, due_date || null, label || null, color || null]
+      `INSERT INTO tasks (title, description, status, owner, start_date, due_date, urgency, assigned_by, assigned_to, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+       RETURNING *`,
+      [title, description, status, owner, start_date || null, due_date || null, urgency || null, assigned_by || null, assigned_to || null]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -31,7 +43,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// ✅ Get Tasks by Owner (branch name)
+// ✅ Get Tasks by Owner
 router.get('/', async (req, res) => {
   const { owner } = req.query;
   if (!owner) return res.status(400).json({ message: 'Missing owner query parameter' });
@@ -48,7 +60,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// ✅ Get All Tasks (for debugging or summary)
+// ✅ Get All Tasks
 router.get('/all', async (_req, res) => {
   try {
     const result = await pool.query('SELECT * FROM tasks ORDER BY created_at DESC');
@@ -61,7 +73,16 @@ router.get('/all', async (_req, res) => {
 
 // ✅ Update Task
 router.put('/:id', async (req, res) => {
-  const { title, description, status, start_date, due_date, label, color } = req.body;
+  const {
+    title,
+    description,
+    status,
+    start_date,
+    due_date,
+    urgency,
+    assigned_by,
+    assigned_to,
+  } = req.body;
 
   try {
     const result = await pool.query(
@@ -71,10 +92,12 @@ router.put('/:id', async (req, res) => {
          status = $3,
          start_date = $4,
          due_date = $5,
-         label = $6,
-         color = $7
-       WHERE id = $8 RETURNING *`,
-      [title, description, status, start_date || null, due_date || null, label || null, color || null, req.params.id]
+         urgency = $6,
+         assigned_by = $7,
+         assigned_to = $8
+       WHERE id = $9
+       RETURNING *`,
+      [title, description, status, start_date || null, due_date || null, urgency || null, assigned_by || null, assigned_to || null, req.params.id]
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -94,7 +117,7 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// ✅ Summary View
+// ✅ Summary
 router.get('/summary', async (req, res) => {
   const { start_date, end_date } = req.query;
   let query = 'SELECT owner AS branch, COUNT(*) AS task_count FROM tasks';
