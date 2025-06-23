@@ -12,6 +12,8 @@ const DashboardRoutes = require('./DashboardRoutes'); // ✅ Corrected: singular
 const FeedRoutes = require('./FeedRoutes');
 const TransferRoutes = require('./TransferRoutes');
 const userRoutes = require('./users');
+const manualRoutes = require('./manualRoutes');
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -111,6 +113,8 @@ app.use('/api/feed', FeedRoutes);
 app.use('/api/transfers', TransferRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tasks', kanbanRoutes);
+app.use('/api', manualRoutes);
+
 
 // ✅ Health check
 app.get('/', (req, res) => {
