@@ -2,23 +2,23 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const path = require('path');
+const nodemailer = require('nodemailer');
 const { Pool } = require('pg');
 require('dotenv').config();
 
 const kanbanRoutes = require('./kanbanRoutes');
 const commentRoutes = require('./commentRoutes');
 const eventsRoutes = require('./eventsRoutes');
-const DashboardRoutes = require('./DashboardRoutes'); // ✅ Corrected: singular
+const DashboardRoutes = require('./DashboardRoutes');
 const FeedRoutes = require('./FeedRoutes');
 const TransferRoutes = require('./TransferRoutes');
 const userRoutes = require('./users');
 const manualRoutes = require('./manualRoutes');
 
-
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ✅ PostgreSQL DB Connection
+// ✅ PostgreSQL Connection
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
@@ -34,29 +34,27 @@ pool.on('error', (err) => {
 
 app.set('db', pool);
 
-// ✅ CORS Configuration (MUST be before routes)
+// ✅ CORS
 app.use(cors({
   origin: 'https://iridescent-begonia-1b7fad.netlify.app',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
-/*app.options('*', cors()); // ✅ handles preflight OPTIONS requests*/
-
 
 // ✅ Middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ✅ Serve uploaded files
+// ✅ Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// ✅ Log all incoming requests
+// ✅ Log requests
 app.use((req, res, next) => {
   console.log(`➡️ ${req.method} ${req.url}`);
   next();
 });
 
-// ✅ Auth: Register
+// ✅ Register
 app.post('/register', async (req, res) => {
   const { branch, email, password, role, branch_id } = req.body;
   try {
@@ -80,15 +78,17 @@ app.post('/register', async (req, res) => {
   }
 });
 
-// ✅ Auth: Login
+// ✅ Login
 app.post('/login', async (req, res) => {
   const { email, password } = req.body;
   try {
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (result.rows.length === 0) return res.status(401).json({ message: 'User not found' });
+
     const user = result.rows[0];
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ message: 'Incorrect password' });
+
     res.status(200).json({
       message: 'Login successful',
       user: {
@@ -105,16 +105,80 @@ app.post('/login', async (req, res) => {
   }
 });
 
+// ✅ Forgot Password: Send OTP
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (result.rows.length === 0) return res.status(404).json({ message: 'No user with that email' });
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 min
+
+    await pool.query(
+      'UPDATE users SET reset_otp = $1, reset_otp_expires = $2 WHERE email = $3',
+      [otp, expires, email]
+    );
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: `"Your Company" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Your OTP Code',
+      text: `Your OTP code is: ${otp}`,
+    });
+
+    res.json({ message: 'OTP sent to your email' });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Could not send OTP' });
+  }
+});
+
+// ✅ Reset Password
+app.post('/api/auth/reset-password', async (req, res) => {
+  const { email, otp, newPassword } = req.body;
+
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (result.rows.length === 0) return res.status(404).json({ message: 'User not found' });
+
+    const user = result.rows[0];
+    if (user.reset_otp !== otp || new Date() > new Date(user.reset_otp_expires)) {
+      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await pool.query(
+      'UPDATE users SET password = $1, reset_otp = NULL, reset_otp_expires = NULL WHERE email = $2',
+      [hashed, email]
+    );
+
+    res.json({ message: 'Password reset successful' });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Could not reset password' });
+  }
+});
+
 // ✅ Routes
 app.use('/api/comments', commentRoutes);
 app.use('/api/events', eventsRoutes);
-app.use('/api/dashboard', DashboardRoutes); // ✅ Corrected import
+app.use('/api/dashboard', DashboardRoutes);
 app.use('/api/feed', FeedRoutes);
 app.use('/api/transfers', TransferRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tasks', kanbanRoutes);
 app.use('/api', manualRoutes);
-
 
 // ✅ Health check
 app.get('/', (req, res) => {
@@ -130,7 +194,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ✅ 404 Catch-all
+// ✅ 404
 app.use((req, res) => {
   res.status(404).json({ message: 'Not Found' });
 });
