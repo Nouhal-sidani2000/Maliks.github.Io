@@ -64,7 +64,7 @@ app.post('/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await pool.query(
       `INSERT INTO users (branch, email, password, role, branch_id, created_on)
-       VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING *`,
+       VALUES ($1, LOWER($2), $3, $4, $5, NOW()) RETURNING *`,
       [branch, email, hashedPassword, role, parseInt(branch_id)]
     );
     res.status(201).json({ message: 'User registered', user: result.rows[0] });
@@ -82,7 +82,7 @@ app.post('/register', async (req, res) => {
 app.post('/login', async (req, res) => {
   const { email, password } = req.body;
   try {
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const result = await pool.query('SELECT * FROM users WHERE LOWER(email) = LOWER($1)', [email]);
     if (result.rows.length === 0) return res.status(401).json({ message: 'User not found' });
 
     const user = result.rows[0];
@@ -109,14 +109,14 @@ app.post('/login', async (req, res) => {
 app.post('/api/auth/forgot-password', async (req, res) => {
   const { email } = req.body;
   try {
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const result = await pool.query('SELECT * FROM users WHERE LOWER(email) = LOWER($1)', [email]);
     if (result.rows.length === 0) return res.status(404).json({ message: 'No user with that email' });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 min
 
     await pool.query(
-      'UPDATE users SET reset_otp = $1, reset_otp_expires = $2 WHERE email = $3',
+      'UPDATE users SET reset_otp = $1, reset_otp_expires = $2 WHERE LOWER(email) = LOWER($3)',
       [otp, expires, email]
     );
 
@@ -148,7 +148,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
   const { email, otp, newPassword } = req.body;
 
   try {
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const result = await pool.query('SELECT * FROM users WHERE LOWER(email) = LOWER($1)', [email]);
     if (result.rows.length === 0) return res.status(404).json({ message: 'User not found' });
 
     const user = result.rows[0];
@@ -158,7 +158,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
 
     const hashed = await bcrypt.hash(newPassword, 10);
     await pool.query(
-      'UPDATE users SET password = $1, reset_otp = NULL, reset_otp_expires = NULL WHERE email = $2',
+      'UPDATE users SET password = $1, reset_otp = NULL, reset_otp_expires = NULL WHERE LOWER(email) = LOWER($2)',
       [hashed, email]
     );
 
@@ -170,14 +170,13 @@ app.post('/api/auth/reset-password', async (req, res) => {
   }
 });
 
-// ✅ Routes
+// ✅ Other Routes
 app.use('/api/comments', commentRoutes);
 app.use('/api/events', eventsRoutes);
 app.use('/api/dashboard', DashboardRoutes);
 app.use('/api/feed', FeedRoutes);
 app.use('/api/transfers', TransferRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/tasks', kanbanRoutes);
 app.use('/api', manualRoutes);
 
 // ✅ Health check
