@@ -95,5 +95,26 @@ router.get('/leads', async (req, res) => {
     res.status(500).json({ message: 'Error retrieving leads', error: err.message });
   }
 });
+// ✅ Branch sales trend (last 7 days)
+router.get('/branch-sales-trend', async (req, res) => {
+  const { branch_id } = req.query;
+  if (!branch_id) return res.status(400).json({ message: 'branch_id is required' });
+
+  try {
+    const result = await pool.query(`
+      SELECT date::date AS sales_date, SUM(amount) AS total
+      FROM sales_data
+      WHERE branch_id = $1 AND date >= CURRENT_DATE - INTERVAL '7 days'
+      GROUP BY sales_date
+      ORDER BY sales_date
+    `, [branch_id]);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error in /branch-sales-trend:', err);
+    res.status(500).json({ message: 'Error retrieving branch sales trend', error: err.message });
+  }
+});
+
 
 module.exports = router;
