@@ -132,7 +132,9 @@ router.get('/branch-sales-target-progress', async (req, res) => {
            AND DATE_TRUNC('month', date) = DATE_TRUNC('month', CURRENT_DATE)) s,
         (SELECT target_amount
          FROM sales_target
-         WHERE branch_id = $1) t
+         WHERE branch_id = $1
+           AND DATE_TRUNC(month, month) = DATE_TRUNC('month', CURRENT_DATE)
+         LIMIT 1) t
     `, [branch_id]);
 
     res.json(result.rows[0]);
@@ -141,6 +143,7 @@ router.get('/branch-sales-target-progress', async (req, res) => {
     res.status(500).json({ message: 'Error retrieving target progress', error: err.message });
   }
 });
+
 
 // ✅ Update monthly sales target
 router.post('/update-sales-target', async (req, res) => {
