@@ -118,7 +118,9 @@ router.get('/branch-sales-trend', async (req, res) => {
 // ✅ Monthly sales total + target for progress bar
 router.get('/branch-sales-target-progress', async (req, res) => {
   const { branch_id } = req.query;
-  if (!branch_id) return res.status(400).json({ message: 'branch_id is required' });
+  if (!branch_id) {
+    return res.status(400).json({ message: 'branch_id is required' });
+  }
 
   try {
     const result = await pool.query(`
@@ -130,19 +132,26 @@ router.get('/branch-sales-target-progress', async (req, res) => {
          FROM sales_data
          WHERE branch_id = $1
            AND DATE_TRUNC('month', date) = DATE_TRUNC('month', CURRENT_DATE)) s,
-        (SELECT target_amount
-         FROM sales_target
-         WHERE branch_id = $1
-           AND DATE_TRUNC(month, month) = DATE_TRUNC('month', CURRENT_DATE)
-         LIMIT 1) t
+        (
+          SELECT target_amount
+          FROM sales_target
+          WHERE branch_id = $1
+            AND DATE_TRUNC('month', month) = DATE_TRUNC('month', CURRENT_DATE)
+          ORDER BY month DESC
+          LIMIT 1
+        ) t
     `, [branch_id]);
 
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Error in /branch-sales-target-progress:', err);
-    res.status(500).json({ message: 'Error retrieving target progress', error: err.message });
+    console.error('❌ Error in /branch-sales-target-progress:', err);
+    res.status(500).json({
+      message: 'Error retrieving target progress',
+      error: err.message,
+    });
   }
 });
+
 
 router.post('/update-sales-target', async (req, res) => {
   const { branch_id, target_amount } = req.body;
