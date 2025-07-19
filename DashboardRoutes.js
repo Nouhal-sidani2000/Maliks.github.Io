@@ -144,8 +144,6 @@ router.get('/branch-sales-target-progress', async (req, res) => {
   }
 });
 
-
-// ✅ Update monthly sales target
 router.post('/update-sales-target', async (req, res) => {
   const { branch_id, target_amount } = req.body;
   if (!branch_id || target_amount == null) {
@@ -153,14 +151,18 @@ router.post('/update-sales-target', async (req, res) => {
   }
 
   try {
-    await pool.query(`
-      INSERT INTO sales_target (branch_id, target_amount)
-      VALUES ($1, $2)
-      ON CONFLICT (branch_id)
-      DO UPDATE SET target_amount = EXCLUDED.target_amount
-    `, [branch_id, target_amount]);
+    const month = new Date();
+    month.setDate(1); // First of current month
+    const formattedMonth = month.toISOString().split('T')[0];
 
-    res.json({ message: 'Target updated successfully' });
+    await pool.query(`
+      INSERT INTO sales_target (branch_id, month, target_amount)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (branch_id, month)
+      DO UPDATE SET target_amount = EXCLUDED.target_amount
+    `, [branch_id, formattedMonth, target_amount]);
+
+    res.json({ message: 'Monthly target updated successfully' });
   } catch (err) {
     console.error('Error in /update-sales-target:', err);
     res.status(500).json({ message: 'Error updating target', error: err.message });
