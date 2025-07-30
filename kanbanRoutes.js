@@ -36,7 +36,7 @@ router.post('/', async (req, res) => {
        RETURNING *`,
       [title, description, status, owner, start_date || null, due_date || null, urgency || null, assigned_by || null, assigned_to || null]
     );
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(result.rows[0]); // Return created task
   } catch (err) {
     console.error('❌ Error creating task:', err.message);
     res.status(500).json({ message: 'Error creating task', error: err.message });
@@ -53,18 +53,18 @@ router.get('/', async (req, res) => {
       'SELECT * FROM tasks WHERE owner = $1 ORDER BY created_at DESC',
       [owner]
     );
-    res.json(result.rows);
+    res.json(result.rows); // Return array of tasks
   } catch (err) {
     console.error('❌ Error fetching tasks:', err.message);
     res.status(500).json({ message: 'Error fetching tasks', error: err.message });
   }
 });
 
-// ✅ Get All Tasks
+// ✅ Get All Tasks (for admin/head_of_department)
 router.get('/all', async (_req, res) => {
   try {
     const result = await pool.query('SELECT * FROM tasks ORDER BY created_at DESC');
-    res.json(result.rows);
+    res.json(result.rows); // Return array of all tasks
   } catch (err) {
     console.error('❌ Error fetching all tasks:', err.message);
     res.status(500).json({ message: 'Error fetching all tasks', error: err.message });
@@ -97,9 +97,19 @@ router.put('/:id', async (req, res) => {
          assigned_to = $8
        WHERE id = $9
        RETURNING *`,
-      [title, description, status, start_date || null, due_date || null, urgency || null, assigned_by || null, assigned_to || null, req.params.id]
+      [
+        title,
+        description,
+        status,
+        start_date || null,
+        due_date || null,
+        urgency || null,
+        assigned_by || null,
+        assigned_to || null,
+        req.params.id,
+      ]
     );
-    res.json(result.rows[0]);
+    res.json(result.rows[0]); // Return updated task
   } catch (err) {
     console.error('❌ Error updating task:', err.message);
     res.status(500).json({ message: 'Error updating task', error: err.message });
@@ -110,14 +120,14 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM tasks WHERE id = $1', [req.params.id]);
-    res.sendStatus(204);
+    res.sendStatus(204); // No content
   } catch (err) {
     console.error('❌ Error deleting task:', err.message);
     res.status(500).json({ message: 'Error deleting task', error: err.message });
   }
 });
 
-// ✅ Summary
+// ✅ Task Summary by Branch
 router.get('/summary', async (req, res) => {
   const { start_date, end_date } = req.query;
   let query = 'SELECT owner AS branch, COUNT(*) AS task_count FROM tasks';
@@ -132,7 +142,7 @@ router.get('/summary', async (req, res) => {
 
   try {
     const result = await pool.query(query, values);
-    res.json(result.rows);
+    res.json(result.rows); // Return summary array
   } catch (err) {
     console.error('❌ Error generating summary:', err.message);
     res.status(500).json({ message: 'Error generating summary', error: err.message });
