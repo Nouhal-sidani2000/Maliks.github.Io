@@ -178,6 +178,8 @@ app.use('/api/feed', FeedRoutes);
 app.use('/api/transfers', TransferRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api', manualRoutes);
+app.use('/api/tasks', kanbanRoutes);
+
 
 // ✅ Health check
 app.get('/', (req, res) => {
